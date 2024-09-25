@@ -1,0 +1,882 @@
+//KC03C58A JOB ,'M. JIZAN',MSGCLASS=H
+//*
+//*****************************************************************
+//*                                                               *
+//*  CSCI 465               ASSIGNMENT 5        FALL 2023         *
+//*                                                               *
+//*  DEVELOPER NAME: MILAD JIZAN                                  *
+//*        DUE DATE: 10/31/2023 11:59PM                           *
+//*                                                               *
+//*  PURPOSE: THE PURPOSE OF THIS PROJECT IS TO PRACTICE THE      *
+//*           JCL REQUIRED TO USE THE COBOL COMPILER,             *
+//*           BINDER, AND FETCH & EXICUTE STEPS. IN ADDITION TO   *
+//*           THIS, THE PURPOSE IS TO ALSO LEARN THE BASICS OF    *
+//*           COBOL TO PRODUCE A DETAILED REPORT BY READING AN    *
+//*           INPUT FILE AND PROCESSING IT'S RECORDS.             *
+//*****************************************************************
+//*
+//*****************************************************************
+//*                            JSTEP01:                           *
+//*                                                               *
+//*  JSTEP01: THIS IS THE COBOL COMPILE STEP WHICH EXECUTES       *
+//*           THE PROGRAM: IGYCRCTL, A.K.A., THE COBOL COMPILER.  *
+//*                                                               *
+//*  STEPLIB: BECAUSE THE COBOL COMPILER IS NOT IN THE LNKLST,    *
+//*           THE STEPLIB IS REQUIRED TO PROVIDE IT'S LOCATION.   *
+//*                                                               *
+//*    SYSIN: THIS DD CARD INDICATES THE INSTREAM COBOL PROGRAM.  *
+//*           THE COBOL CODE IMMEDIATELY FOLLOWS IT.		      *
+//*                                                               *
+//*   SYSLIN: THIS DD CARD TELLS THE SYSTEM WHERE TO STORE THE    *
+//*           OBJECT MODULE THAT RESULTS FROM THE COBOL COMPILER  *
+//*                                                               *
+//* SYSPRINT: THIS DD CARD INDICATES WHERE OUTPUT MESSAGES FROM   *
+//*           THE COBOL COMPILER ARE TO BE WRITTEN.               *
+//*                                                               *
+//*    SYSUT: SYSUT1 - SYSUT15 ARE SCRATCH PADS THAT THE COBOL    *
+//*           COMPILER CAN USE TO DO IT'S JOB. THEY ARE TEMPERARY *
+//*           SPACES WHERE DATA CAN BE WRITTEN DURING COMPOLATION.*
+//*                                                               *
+//* SYSMDECK: A TEMPERARY DATA SET THAT WILL HOLD THE UPDATED     *
+//*           IMPUT SOURCE AFTER LIBRARY PROCESSING.              *
+//*                                                               *
+//*****************************************************************
+//*
+//STEP01   EXEC PGM=IGYCRCTL,REGION=0M
+//*
+//STEPLIB  DD   DSN=IGY630.SIGYCOMP,DISP=SHR
+//         DD   DSN=CEE.SCEERUN,DISP=SHR
+//         DD   DSN=CEE.SCEERUN2,DISP=SHR
+//*
+//SYSIN    DD *
+
+       IDENTIFICATION DIVISION.
+      ***********************************************************
+      *                                                         *
+      * PROGRAM NAME: SALESRPT                                  *
+      * PROGRAMMER:   MILAD JIZAN                               *
+      * DUE DATE:     10/31/2023                                *
+      *                                                         *
+      * FUNCTION: THIS PROGRAM READS IN DATA FROM A FILE        *
+      *           CONTAINING UNFORMATTED SALES DATA AND         *
+      *           PROCESSES IT TO PRODUCE A DETAILED REPORT.    *
+      *                                                         *
+      *    INPUT: A SALES FILE CONTAINING 105 RECORDS.          *
+      *           THE FIRST RECORD CONTAINS A SHARE PRICE,      *
+      *           FOLLOWED BY THE NAME OF THE MUTUAL FUND,      *
+      *           FOLLOWED BY THREE COMMISSION PERCENTAGES.     *
+      *           THE REMINING 104 RECORDS ARE THE SALES DATA.  *
+      *           EACH RECORD CONSISTS OF THE BRANCH NAME,      *
+      *           BROKER NAME, DEPOSIT AMOUNT, AND              *
+      *           COMMISSION PERCENT FLAG.                      *
+      *                                                         *
+      *   OUTPUT: OUTPUT STARTS WITH HEADERS THAT DISPLAY THE   *
+      *           DATE, TIME, JOB AND PAGE NUMBER, SHARE PRICE, *
+      *           NAME OF THE MUTUAL FUND, AND REPORT TITLE.    *
+      *           THE HEADERS ARE PRINTED ON EVERY PAGE. EACH   *
+      *           PAGE CONSISTS OF 18 RECORDS. A SECOND REPORT  *
+      *           CONTAINING HIGH SALES IS ALSO PRINTED SHOWING *
+      *           THE BROKER NAME AND HOW MANY SHARES THEY HAVE *
+      *           SOLD. FINALLY, BOTH REPORTS ARE FOLLOWED BY A *
+      *           TOTALS PAGE WHICH PRINTS THE TOTAL NUMBER OF  *
+      *           SALES, SALES AMOUNTS, SHARE AMOUNTS, AND      *
+      *           TOTAL COMMISSIONS EARNED.                     *
+      *                                                         *
+      *    NOTES: NONE                                          *
+      *                                                         *
+      ***********************************************************
+
+       PROGRAM-ID.    SALESRPT.
+       AUTHOR.        MILAD JIZAN
+       DATE-WRITTEN.  10/10/2023.
+       DATE-COMPILED.
+
+       ENVIRONMENT DIVISION.
+
+       INPUT-OUTPUT SECTION.
+
+       FILE-CONTROL.
+
+           SELECT SALE-FILE ASSIGN TO SALEFILE.
+           SELECT REPORT-FILE ASSIGN TO RPTFILE.
+           SELECT HIGH-SALES-FILE ASSIGN TO HISALE.
+
+       DATA DIVISION.
+
+       FILE SECTION.
+
+       FD  SALE-FILE
+           RECORDING MODE F.
+
+       01  FUND-RECORD.
+           05  IN-SHR-PRC     PIC S9(3)V99.
+           05  IN-FUND-NME    PIC X(35).
+           05  IN-COMM-PCT-1  PIC S9V9(5).
+           05  IN-COMM-PCT-2  PIC S9V9(5).
+           05  IN-COMM-PCT-3  PIC S9V9(5).
+           05                 PIC X(22).
+
+       01  SALE-RECORD.
+           05  IN-BRANCH-NME  PIC X(20).
+           05  IN-BROKER-NME  PIC X(25).
+           05  IN-DEP-AMT     PIC S9(8)V99.
+           05                 PIC X(4).
+           05  IN-COMM-FLG    PIC S9(1).
+           05                 PIC X(20).
+
+
+
+       FD  HIGH-SALES-FILE
+           RECORDING MODE F
+           BLOCK CONTAINS 10 RECORDS.
+
+       01  HIGH-SALES-RECORD.
+           05  IN-HS-BROKER-NME  PIC X(25).
+           05  IN-HS-SHR-AMT
+               PIC S9(10)V9(3) PACKED-DECIMAL VALUE 0.
+           05                    PIC X(42).
+
+
+
+       FD  REPORT-FILE
+           RECORDING MODE F
+           BLOCK CONTAINS 20 RECORDS.
+
+       01  REPORT-RECORD  PIC X(132).
+
+
+
+       WORKING-STORAGE SECTION.
+
+      ***********************************************************
+      *                                                         *
+      * EOF-FLAG: INDICATES END OF FILE WHEN THE LAST RECORD    *
+      *           HAS BEEN READ.                                *
+      *                                                         *
+      * LINE-CTR: KEEPS TRACK OF THE NUMBER OF LINES THAT HAVE  *
+      *           BEEN PRINTED PER PAGE.                        *
+      *                                                         *
+      * PAGE-CTR: KEEPS TRACK OF THE PAGE NUMBER.               *
+      *                                                         *
+      *  DEP-AMT: FEILD FOR DEPOSIT AMOUNT USED IN CALCULATIONS.*
+      *                                                         *
+      *  SHR-AMT: FEILD F0R SHARE AMOUNT USED IN CALCULATIONS.  *
+      *                                                         *
+      * COMM-AMT: FEILD FOR COMMISSION AMMOUNT USED IN          *
+      *           CALCULATIONS.                                 *
+      *                                                         *
+      *  SHR-PRC: FEILD FOR SHARE PRICE USED IN CALCULATIONS.   *
+      *                                                         *
+      * HS-SHR-AMT: FEILD FOR HIGH SALES SHARE                  *
+      *             AMOUNT USED IN CALCULATIONS.                *
+      *                                                         *
+      ***********************************************************
+       01  EOF-FLAG    PIC X VALUE 'N'.
+       01  LINE-CTR    PIC S9(3) BINARY SYNC VALUE 99.
+       01  PAGE-CTR    PIC S9(3) PACKED-DECIMAL VALUE 0.
+       01  DEP-AMT     PIC S9(8)V99 PACKED-DECIMAL VALUE 0.
+       01  SHR-AMT     PIC S9(10)V999 PACKED-DECIMAL VALUE 0.
+       01  COMM-AMT    PIC S9(8)V99 PACKED-DECIMAL VALUE 0.
+       01  SHR-PRC     PIC S9(3)V99 PACKED-DECIMAL VALUE 0.
+       01  HS-SHR-AMT  PIC S9(10)V999 PACKED-DECIMAL VALUE 0.
+
+
+
+      ***********************************************************
+      *                                                         *
+      * COMMISSION-PERCENTAGES: FEILDS USED TO HOLD THE THREE   *
+      *                         COMMISSION PERCENTAGES.         *
+      *                                                         *
+      ***********************************************************
+       01  COMMISSION-PERCENTAGES.
+           05  COMM-PCT-1  PIC S9V9(5) BINARY SYNC.
+           05  COMM-PCT-2  PIC S9V9(5) BINARY SYNC.
+           05  COMM-PCT-3  PIC S9V9(5) BINARY SYNC.
+       01  TEMP-COMM-PCT   PIC S9V9(5) BINARY SYNC.
+
+
+
+      ***********************************************************
+      *                                                         *
+      * TOTAL-FEILDS: FEILDS FOR NUMBER OF SALES, AND           *
+      *               SHARE, DEPOSIT, COMMISSION TOTAL AMOUNTS  *
+      *                                                         *
+      * HS-TOTAL-FEILDS: FEILDS FOR THE HIGH SALES TOTAL.       *
+      *                                                         *
+      ***********************************************************
+       01  TOTAL-FEILDS.
+           05  NUM-OF-SALES  PIC S9(3) BINARY SYNC VALUE 0.
+           05  TOT-SHR-AMT   PIC S9(7)V999 PACKED-DECIMAL VALUE 0.
+           05  TOT-DEP-AMT   PIC S9(8)V99 PACKED-DECIMAL VALUE 0.
+           05  TOT-COMM-AMT  PIC S9(5)V99 PACKED-DECIMAL VALUE 0.
+
+       01  HS-TOTAL-FEILDS.
+           05  NUM-OF-HS-BROKERS  PIC 9(3).
+           05  TOT-HS-SHR-AMT
+               PIC S9(10)V999 PACKED-DECIMAL VALUE 0.
+
+
+
+      ***********************************************************
+      *                                                         *
+      * HEADER-1: PRINTS THE DATE, FUND NAME, AND PAGE COUNTER. *
+      *                                                         *
+      * HEADER-2: PRINTS THE TIME, REPORT TITLE, AND JOB NAME.  *
+      *                                                         *
+      * HEADER-3: PRINTS THE SHARE PRICE.                       *
+      *                                                         *
+      * HEADER-4: PRINTS THE COLUMN TITLES FOR THE REPORT.      *
+      *                                                         *
+      * HEADER-5: PRINTS HYPHENS UNDER THE COLUMN TITLES.       *
+      *                                                         *
+      ***********************************************************
+       01  HEADER-1.
+           05  OUT-FIRST-RECORD.
+               10  OUT-CURRENT-MONTH  PIC 9(2).
+               10                     PIC X(1) VALUE '/'.
+               10  OUT-CURRENT-DAY    PIC 9(2).
+               10                     PIC X(1) VALUE '/'.
+               10  OUT-CURRENT-YEAR   PIC 9(4).
+               10                     PIC X(38) VALUE SPACES.
+               10  OUT-FUND-NME       PIC X(35).
+               10                     PIC X(40) VALUE SPACES.
+               10                     PIC X(6) VALUE 'PAGE: '.
+               10  OUT-PAGE-CTR       PIC ZZ9.
+
+       01  HEADER-2.
+           05  OUT-CURRENT-HOUR    PIC 9(2).
+           05                      PIC X(1)  VALUE ':'.
+           05  OUT-CURRENT-MINUTE  PIC 9(2).
+           05                      PIC X(1)  VALUE SPACES.
+           05  OUT-DAWN-OR-DUSK    PIC X(2)  VALUE 'AM'.
+           05                      PIC X(40) VALUE SPACES.
+           05  REPORT-TITLE        PIC X(35)
+               VALUE 'BROKER SALES AND COMMISSIONS REPORT'.
+           05                      PIC X(32) VALUE SPACES.
+           05                      PIC X(9)  VALUE 'JOBNAME: '.
+           05 JOBNAME              PIC X(8)  VALUE 'JOBNAME '.
+
+       01  HEADER-3.
+           05               PIC X(61) VALUE SPACES.
+           05  OUT-SHR-PRC  PIC $$$9.99.
+           05               PIC X(64) VALUE SPACES.
+
+       01  HEADER-4.
+           05  PIC X(11) VALUE "BRANCH NAME".
+           05  PIC X(21) VALUE SPACES.
+           05  PIC X(11) VALUE "BROKER NAME".
+           05  PIC X(26) VALUE SPACES.
+           05  PIC X(14) VALUE "DEPOSIT AMOUNT".
+           05  PIC X(15) VALUE SPACES.
+           05  PIC X(12) VALUE "SHARE AMOUNT".
+           05  PIC X(12) VALUE SPACES.
+           05  PIC X(10) VALUE "COMMISSION".
+
+       01  HEADER-5.
+           05  PIC X(20) VALUE ALL '-'.
+           05  PIC X(12) VALUE SPACES.
+           05  PIC X(25) VALUE ALL '-'.
+           05  PIC X(11) VALUE SPACES.
+           05  PIC X(15) VALUE ALL '-'.
+           05  PIC X(13) VALUE SPACES.
+           05  PIC X(14) VALUE ALL '-'.
+           05  PIC X(12) VALUE SPACES.
+           05  PIC X(10) VALUE ALL '-'.
+
+
+
+      ***********************************************************
+      *                                                         *
+      * TOTALS-HEADER-1: PRINTS COLUMN TITLES FOR TOTALS PAGE.  *
+      *                                                         *
+      * TOTALS-HEADER-2: PRINTS HYPHENS BELOW COLUMN TITLES OF  *
+      *                  THE TOTALS PAGE.                       *
+      *                                                         *
+      ***********************************************************
+       01  TOTALS-HEADER-1.
+           05  PIC X(35) VALUE SPACES.
+           05  PIC X(15) VALUE 'NUMBER OF SALES'.
+           05  PIC X(10) VALUE SPACES.
+           05  PIC X(18) VALUE 'TOTAL SALES AMOUNT'.
+           05  PIC X(10) VALUE SPACES.
+           05  PIC X(18) VALUE 'TOTAL SHARE AMOUNT'.
+           05  PIC X(10) VALUE SPACES.
+           05  PIC X(16) VALUE 'TOTAL COMMISSION'.
+
+       01  TOTALS-HEADER-2.
+           05  PIC X(35) VALUE SPACES.
+           05  PIC X(15) VALUE ALL '-'.
+           05  PIC X(10) VALUE SPACES.
+           05  PIC X(18) VALUE ALL '-'.
+           05  PIC X(10) VALUE SPACES.
+           05  PIC X(18) VALUE ALL '-'.
+           05  PIC X(10) VALUE SPACES.
+           05  PIC X(16) VALUE ALL '-'.
+
+
+
+      ***********************************************************
+      *                                                         *
+      * OUT-TOTAL-FEILDS: CONTAINS THE OUTPUT FEILDS FOR THE    *
+      *                   TOTALS PAGE.                          *
+      *                                                         *
+      * OUT-HS-TOTAL-FEILDS: CONTAINS THE OUTPUT FEILDS FOR THE *
+      *                      HIGH SALES TOTALS FEILDS.          *
+      *                                                         *
+      ***********************************************************
+       01  OUT-TOTAL-FEILDS.
+           05                    PIC X(47) VALUE SPACES.
+           05  OUT-NUM-OF-SALES  PIC 9(3).
+           05                    PIC X(14) VALUE SPACES.
+           05  OUT-TOT-DEP-AMT   PIC $$$,$$$,$$9.99.
+           05                    PIC X(14) VALUE SPACES.
+           05  OUT-TOT-SHR-AMT   PIC Z,ZZZ,ZZ9.9999.
+           05                    PIC X(16) VALUE SPACES.
+           05  OUT-TOT-COMM-AMT  PIC $$$,$$9.99.
+
+       01  OUT-HS-TOTAL-FEILDS.
+           05                         PIC X(60) VALUE SPACES.
+           05  OUT-NUM-OF-HS-BROKERS  PIC 9(3).
+           05                         PIC X(20) VALUE SPACES.
+           05  OUT-TOT-HS-SHR-AMT     PIC Z,ZZZ,ZZ9.9999.
+           05                         PIC X(35) VALUE SPACES.
+
+
+
+      ***********************************************************
+      *                                                         *
+      * HS-TOT-HEADER-1: HOLDS THE FEILDS THAT PRINT THE COLUMN *
+      *                  TITLES FOR THE HIGH SALES TOTALS PAGE. *
+      *                                                         *
+      * HS-TOT-HEADER-2: PRINTS THE HYPHENS UNDER THE COLUMN    *
+      *                  TITLES OF THE HIGH SALE TOTALS PAGE.   *
+      *                                                         *
+      ***********************************************************
+       01  HS-TOT-HEADER-1.
+           05  PIC X(35) VALUE SPACES.
+           05  PIC X(28) VALUE 'NUMBER OF HIGH SALES BROKERS'.
+           05  PIC X(5) VALUE SPACES.
+           05  PIC X(29) VALUE 'TOTAL HIGH SALES SHARE AMOUNT'.
+           05  PIC X(35) VALUE SPACES.
+
+       01  HS-TOT-HEADER-2.
+           05  PIC X(35) VALUE SPACES.
+           05  PIC X(28) VALUE ALL '-'.
+           05  PIC X(5) VALUE SPACES.
+           05  PIC X(29) VALUE ALL '-'.
+           05  PIC X(35) VALUE SPACES.
+
+
+
+      ***********************************************************
+      *                                                         *
+      * HS-HEADER-1: PRINTS COLUMN TITLES FOR THE HIGH SALES    *
+      *              TOTALS PAGE.                               *
+      *                                                         *
+      * HS-HEADER-2: PRINTS HYPHENS UNDER THE COLUMN HEADERS.   *
+      *                                                         *
+      ***********************************************************
+       01  HS-HEADER-1.
+           05  PIC X(40) VALUE SPACES.
+           05  PIC X(22) VALUE 'HIGH SALES BROKER NAME'.
+           05  PIC X(7)  VALUE SPACES.
+           05  PIC X(23) VALUE 'HIGH SALES SHARE AMOUNT'.
+           05  PIC X(40) VALUE SPACES.
+
+       01  HS-HEADER-2.
+           05  PIC X(40) VALUE SPACES.
+           05  PIC X(22) VALUE ALL '-'.
+           05  PIC X(7)  VALUE SPACES.
+           05  PIC X(23) VALUE ALL '-'.
+           05  PIC X(40) VALUE SPACES.
+
+
+
+      ***********************************************************
+      *                                                         *
+      * IN-CURRENT-DATE: CONTAINS THE INPUT FEILDS FOR THE DATE *
+      *                  AND TIME.
+      *                                                         *
+      ***********************************************************
+       01  IN-CURRENT-DATE.
+           05  CURRENT-DATE.
+               10  CURRENT-YEAR    PIC 9(4).
+               10  CURRENT-MONTH   PIC 9(2).
+               10  CURRENT-DAY     PIC 9(2).
+           05  CURRENT-TIME.
+               10  CURRENT-HOUR    PIC 9(2).
+               10  CURRENT-MINUTE  PIC 9(2).
+               10  CURRENT-SECOND  PIC 9(2).
+               10  CURRENT-MS      PIC 9(2).
+           05  DIFF-FROM-GMT       PIC S9(4).
+
+
+
+      ***********************************************************
+      *                                                         *
+      * DETAIL-LINE-1: HOLDS THE OUTPUT FEILDS FOR A SALES      *
+      *                RECORD.                                  *
+      *                                                         *
+      * DETAIL-LINE-2: HOLDS THE OUTPUT FEILDS FOR A HIGH SALES *
+      *                RECORD.                                  *
+      *                                                         *
+      ***********************************************************
+       01  DETAIL-LINE-1.
+           05  OUT-NEXT-RECORD.
+               10  OUT-BRANCH-NME  PIC X(20).
+               10                  PIC X(12) VALUE SPACES.
+               10  OUT-BROKER-NME  PIC X(25).
+               10                  PIC X(12) VALUE SPACES.
+               10  OUT-DEP-AMT     PIC $$$,$$$,$$9.99.
+               10                  PIC X(13) VALUE SPACES.
+               10  OUT-SHR-AMT     PIC Z,ZZZ,ZZ9.9999.
+               10                  PIC X(13)  VALUE SPACES.
+               10  OUT-COMM-AMT    PIC $$,$$9.99.
+
+       01  DETAIL-LINE-2.
+           05                     PIC X(40) VALUE SPACES.
+           05  OUT-HS-BROKER-NME  PIC X(25).
+           05                     PIC X(11) VALUE SPACES.
+           05  OUT-HS-SHR-AMT     PIC ZZZ,ZZZ,ZZZ.9999.
+           05                     PIC X(40) VALUE SPACES.
+
+
+
+       PROCEDURE DIVISION.
+
+      ***********************************************************
+      *                                                         *
+      * THIS IS THE MAIN PARAGRAPH THAT CONTROLS THE LOGIC TO   *
+      * READ INPUT DATA FROM THE INPUT FILE AND CALL            *
+      * SUB PARAGRAPHS TO PROCESS AND FORMAT THE OUTPUT TO      *
+      * PRINT A DETAILED REPORT.                                *
+      *                                                         *
+      ***********************************************************
+       0000-MAIN.
+
+           CALL JOBNAME USING JOBNAME.
+
+           OPEN INPUT  SALE-FILE.
+           OPEN OUTPUT HIGH-SALES-FILE.
+           OPEN OUTPUT REPORT-FILE.
+
+           READ SALE-FILE
+             AT END MOVE 'Y' TO EOF-FLAG
+           END-READ.
+
+           MOVE IN-FUND-NME TO OUT-FUND-NME.
+           MOVE IN-COMM-PCT-1 TO COMM-PCT-1.
+           MOVE IN-COMM-PCT-2 TO COMM-PCT-2.
+           MOVE IN-COMM-PCT-3 TO COMM-PCT-3.
+           MOVE IN-SHR-PRC TO SHR-PRC.
+           MOVE SHR-PRC TO OUT-SHR-PRC.
+
+           PERFORM 0300-CURRENT-DATE-AND-TIME.
+
+           READ SALE-FILE
+             AT END MOVE 'Y' TO EOF-FLAG
+           END-READ.
+
+           PERFORM 0100-PROCESS-RECORD
+             UNTIL EOF-FLAG = 'Y'.
+
+           PERFORM 0600-PRINT-TOTALS.
+
+           CLOSE SALE-FILE.
+           CLOSE REPORT-FILE.
+           CLOSE HIGH-SALES-FILE.
+
+           MOVE 'N' TO EOF-FLAG.
+           MOVE 0 TO PAGE-CTR.
+           MOVE 99 TO LINE-CTR.
+
+           OPEN INPUT HIGH-SALES-FILE.
+           OPEN OUTPUT REPORT-FILE.
+
+           READ HIGH-SALES-FILE
+             AT END MOVE 'Y' TO EOF-FLAG
+           END-READ.
+
+           PERFORM 0400-PROCESS-HS-RECORDS
+             UNTIL EOF-FLAG = 'Y'.
+
+           PERFORM 0700-PRINT-HS-TOTALS.
+
+           CLOSE HIGH-SALES-FILE.
+           CLOSE REPORT-FILE.
+
+           MOVE 0 TO RETURN-CODE.
+
+           STOP RUN.
+
+       0000-EXIT. EXIT.
+
+
+      ***********************************************************
+      *                                                         *
+      * THE PROCESS-RECORD PARAGRAPH CONTROLS THE LOGIC THAT    *
+      * PROCESSES EACH RECORD THAT IS READ IN ONE AT A TIME.    *
+      * IT INCRIMENTS THE LINE COUNTER AND NUMBER OF SALES.     *
+      * IT THEN COPIES VALUES FROM INPUT TO OUTPUT FEILDS, AND  *
+      * UPDATES THE TOTAL DEPOSIT AMOUNT. NEXT, THE SHARE AMOUNT*
+      * IS CALCULATED AND ADDED TO THE TOTAL SHARE AMOUNT. THE  *
+      * APPROPRIATE COMMISSION PERCENTAGE IS THEN COPPIED TO A  *
+      * TEMP FEILD TO BE USED IN CALCULATING THE COMMISSION     *
+      * AMMOUNT WHICH IS THEN ADDED TO THE TOTAL COMMISSION     *
+      * AMMOUNT. THE COMMISSION AMMOUNT IS THEN COPIED TO AN    *
+      * OUTPUT FEILD. LINE COUNTER IS THEN CHECKED TO SEE IF IT *
+      * EXCEEDS THE PAGE SIZE. IF IT DOES, PAGE NUMBER IS       *
+      * INCRIMENTED, PARAGRAPH 0200 IS CALLED TO PRINT PAGE     *
+      * HEADERS AND LINE COUNTER IS SET TO ZERO. IF THE SHARE   *
+      * AMOUNT EXCEEDS 50,000, A HIGH SALES RECORD IS WRITTEN TO*
+      * A TEMPERARY DATA-SET FOR LATER PROCESSING BY 0400.      *
+      * FINALLY, A REPORT RECORD IS WRITTEN AND THE NEXT READ   *
+      * OCCURS UNTIL EOF-FLAG IS EQUAL TO 'Y'.                  *
+      *                                                         *
+      ***********************************************************
+       0100-PROCESS-RECORD.
+
+           ADD 1 TO LINE-CTR.
+           ADD 1 TO NUM-OF-SALES.
+
+           MOVE IN-BRANCH-NME TO OUT-BRANCH-NME.
+           MOVE IN-BROKER-NME TO OUT-BROKER-NME.
+           MOVE IN-DEP-AMT TO DEP-AMT.
+           MOVE DEP-AMT TO OUT-DEP-AMT.
+
+           COMPUTE TOT-DEP-AMT ROUNDED = TOT-DEP-AMT + DEP-AMT.
+
+           COMPUTE SHR-AMT ROUNDED = DEP-AMT / SHR-PRC.
+
+           MOVE SHR-AMT TO OUT-SHR-AMT.
+
+           COMPUTE TOT-SHR-AMT ROUNDED = SHR-AMT + TOT-SHR-AMT.
+
+           IF IN-COMM-FLG = 1
+               MOVE COMM-PCT-1 TO TEMP-COMM-PCT
+           ELSE IF IN-COMM-FLG = 2
+               MOVE COMM-PCT-2 TO TEMP-COMM-PCT
+           ELSE IF IN-COMM-FLG = 3
+               MOVE COMM-PCT-3 TO TEMP-COMM-PCT
+           END-IF.
+
+           COMPUTE COMM-AMT ROUNDED = DEP-AMT * TEMP-COMM-PCT.
+           COMPUTE TOT-COMM-AMT ROUNDED = TOT-COMM-AMT + COMM-AMT.
+
+           MOVE COMM-AMT TO OUT-COMM-AMT.
+
+           IF LINE-CTR > 17
+              ADD 1 TO PAGE-CTR
+              PERFORM 0200-PRINT-HEADERS
+              MOVE 0 TO LINE-CTR
+           END-IF.
+
+           IF SHR-AMT > 50000.000
+
+              MOVE SHR-AMT TO IN-HS-SHR-AMT
+              MOVE OUT-BROKER-NME TO IN-HS-BROKER-NME
+
+              WRITE HIGH-SALES-RECORD
+
+           END-IF.
+
+           WRITE REPORT-RECORD FROM DETAIL-LINE-1 AFTER 2.
+
+           READ SALE-FILE
+             AT END MOVE 'Y' TO EOF-FLAG
+           END-READ.
+
+       0100-EXIT. EXIT.
+
+
+
+      ***********************************************************
+      *                                                         *
+      * MOVES PAGE COUNTER FROM ZONE FEILD TO OUTPUT FEILD AND  *
+      * PRINTS HEADERS 1 THROUGH 5.                             *
+      *                                                         *
+      ***********************************************************
+       0200-PRINT-HEADERS.
+
+           MOVE PAGE-CTR TO OUT-PAGE-CTR.
+
+           WRITE REPORT-RECORD FROM HEADER-1 AFTER 2.
+           WRITE REPORT-RECORD FROM HEADER-2 AFTER 1.
+           WRITE REPORT-RECORD FROM HEADER-3 AFTER 2.
+           WRITE REPORT-RECORD FROM HEADER-4 AFTER 2.
+           WRITE REPORT-RECORD FROM HEADER-5 AFTER 1.
+
+       0200-EXIT. EXIT.
+
+
+
+      ***********************************************************
+      *                                                         *
+      * GETS THE CURRENT DATE AND TIME USING THE INTRINSIC DATE *
+      * FUNCTION AND STORES IT IN THE INPUT FEILDS. IF          *
+      * CURRENT-HOUR > 12, IT SUBTRACTS 12 FROM THE CURRENT-HOUR*
+      * AND MOVES 'PM' TO THE OUTPUT FEILD DAWN-OR-DUSK. THIS   *
+      * IS PERFORMED BEFORE THE CURRENT-HOUR IS COPPIED INTO THE*
+      * OUTPUT FEILD IN ORDER TO MAKE SURE THE TIME IS PRINTED  *
+      * IN NON MILITARY FORM.                                   *
+      *                                                         *
+      ***********************************************************
+       0300-CURRENT-DATE-AND-TIME.
+
+           MOVE FUNCTION CURRENT-DATE TO IN-CURRENT-DATE.
+
+           MOVE CURRENT-MONTH TO OUT-CURRENT-MONTH.
+           MOVE CURRENT-DAY TO OUT-CURRENT-DAY.
+           MOVE CURRENT-YEAR TO OUT-CURRENT-YEAR.
+
+           IF CURRENT-HOUR = 0
+              MOVE 12 TO CURRENT-HOUR
+           END-IF.
+
+           IF CURRENT-HOUR = 12
+              MOVE 'PM' TO OUT-DAWN-OR-DUSK
+           END-IF.
+
+
+           IF CURRENT-HOUR > 12
+
+              SUBTRACT 12 FROM CURRENT-HOUR
+              MOVE 'PM' TO OUT-DAWN-OR-DUSK
+
+           END-IF.
+
+           MOVE CURRENT-HOUR TO OUT-CURRENT-HOUR.
+           MOVE CURRENT-MINUTE TO OUT-CURRENT-MINUTE.
+
+       0300-EXIT. EXIT.
+
+
+
+      ***********************************************************
+      *                                                         *
+      * THIS SUB PARAGRAPH IS RESPONSIBLE FOR PROCESSING HIGH   *
+      * SALES RECORDS. IT STARTS BY INCRIMENTING LINE COUNTER   *
+      * AND NUMBER OF HIGH SALES BROKERS. IT THEN CHECKS TO SEE *
+      * IF LINE COUNTER IS > 17, IF SO, IT RESETS THE LINE      *
+      * COUNTER TO ZERO, INCRIMENTS PAGE COUNTER BY ONE, MOVES  *
+      * THE PAGE COUNTER INTO THE OUTPUT PAGE COUNTER FEILD, AND*
+      * PERFORMS THE 0500-PRINT-HS-HEADERS SUB PARAGRAPH.       *
+      * NEXT, THE HIGH SALES BROKER NAME AND SHARE AMOUNT ARE   *
+      * MOVED INTO THEIR OUTPUT FEILDS. THEN THE TOTAL HIGH     *
+      * SALES SHARE AMOUNT IS UPDATED BY ADDING THE HIGH SALES  *
+      * SHARE AMOUNT TO THE TOTAL HI SALES SHARE AMOUNT.        *
+      * NEXT, THE TOTAL HIGH SALES SHARE AMOUNT IS MOVED INTO   *
+      * ITS OUTPUT FEILD. THEN, A REPORT RECORD IS PRINTED FROM *
+      * DETAIL-LINE-2. FINALLY, ANOTHER READ IS ATTEMPTED FROM  *
+      * THE HIGH-SALES-FILE.                                    *
+      *                                                         *
+      ***********************************************************
+       0400-PROCESS-HS-RECORDS.
+
+           ADD 1 TO LINE-CTR.
+           ADD 1 TO NUM-OF-HS-BROKERS.
+
+           IF LINE-CTR > 17
+             MOVE 0 TO LINE-CTR
+             ADD 1 TO PAGE-CTR
+             MOVE PAGE-CTR TO OUT-PAGE-CTR
+             PERFORM 0500-PRINT-HS-HEADERS
+           END-IF
+
+           MOVE IN-HS-BROKER-NME TO OUT-HS-BROKER-NME.
+           MOVE IN-HS-SHR-AMT TO OUT-HS-SHR-AMT.
+           MOVE IN-HS-SHR-AMT TO HS-SHR-AMT.
+
+           COMPUTE TOT-HS-SHR-AMT ROUNDED =
+             HS-SHR-AMT + TOT-HS-SHR-AMT.
+
+           MOVE TOT-HS-SHR-AMT TO OUT-TOT-HS-SHR-AMT
+
+           WRITE REPORT-RECORD FROM DETAIL-LINE-2 AFTER 2.
+
+           READ HIGH-SALES-FILE
+             AT END MOVE 'Y' TO EOF-FLAG
+           END-READ.
+
+       0400-EXIT. EXIT.
+
+
+
+      ***********************************************************
+      *                                                         *
+      * THIS SUB PARAGRAPH PRINTS THE HIGH SALES HEADERS.       *
+      *                                                         *
+      ***********************************************************
+       0500-PRINT-HS-HEADERS.
+
+           WRITE REPORT-RECORD FROM HEADER-1 AFTER 2.
+           WRITE REPORT-RECORD FROM HEADER-2 AFTER 1.
+           WRITE REPORT-RECORD FROM HEADER-3 AFTER 2.
+
+           WRITE REPORT-RECORD FROM HS-HEADER-1 AFTER 2.
+           WRITE REPORT-RECORD FROM HS-HEADER-2 AFTER 1.
+
+       0500-EXIT. EXIT.
+
+
+
+      ***********************************************************
+      *                                                         *
+      * THIS SUB PARAGRAPH PRINTS THE TOTALS PAGE AT THE END OF *
+      * THE SALES REPORT. IT STARTS BY INCRIMENTING THE PAGE    *
+      * COUNTER. THEN, IT MOVES THE TOTALS FEILDS TO THEIR      *
+      * CORRESPONDING OUTPUT FEILDS. FINALLY, IT PRINTS HEADERS *
+      * 1, 2, AND 3, FOLLOWED BY TOTALS HEADERS 1 AND 2 BEFORE  *
+      * PRINTING THE TOTALS.                                    *
+      *                                                         *
+      ***********************************************************
+       0600-PRINT-TOTALS.
+
+           ADD 1 TO PAGE-CTR.
+
+           MOVE PAGE-CTR TO OUT-PAGE-CTR.
+           MOVE NUM-OF-SALES TO OUT-NUM-OF-SALES.
+           MOVE TOT-DEP-AMT TO OUT-TOT-DEP-AMT.
+           MOVE TOT-SHR-AMT TO OUT-TOT-SHR-AMT.
+           MOVE TOT-COMM-AMT TO OUT-TOT-COMM-AMT.
+
+           WRITE REPORT-RECORD FROM HEADER-1 AFTER 2.
+           WRITE REPORT-RECORD FROM HEADER-2 AFTER 1.
+           WRITE REPORT-RECORD FROM HEADER-3 AFTER 2.
+
+           WRITE REPORT-RECORD FROM TOTALS-HEADER-1 AFTER 2.
+           WRITE REPORT-RECORD FROM TOTALS-HEADER-2 AFTER 1.
+           WRITE REPORT-RECORD FROM OUT-TOTAL-FEILDS AFTER 1.
+
+       0600-EXIT. EXIT.
+
+
+
+      ***********************************************************
+      *                                                         *
+      * THIS SUB PARAGRAPH PRINTS THE HIGH SALES TOTALS PAGE.   *
+      * IT STARTS BY INCRIMENTING THE PAGE COUNTER. THEN, IT    *
+      * MOVES THE PAGE COUNTER, NUMBER OF HIGH SALES BROKERS,   *
+      * AND TOTAL HIGH SALES SHARE AMOUNT TO THE APPROPRIATE    *
+      * OUTPUT FEILDS. FINALLY, IT PRINTS HEADERS 1, 2, AND 3,  *
+      * FOLLOWED BY HS-TOT-HEADER-1 AND HS-TOT-HEADER-2 BEFORE  *
+      * PRINTING THE HIGH SALES TOTALS.                         *
+      *                                                         *
+      ***********************************************************
+       0700-PRINT-HS-TOTALS.
+
+           ADD 1 TO PAGE-CTR.
+
+           MOVE PAGE-CTR TO OUT-PAGE-CTR.
+           MOVE NUM-OF-HS-BROKERS TO OUT-NUM-OF-HS-BROKERS.
+           MOVE TOT-HS-SHR-AMT TO OUT-TOT-HS-SHR-AMT.
+
+           WRITE REPORT-RECORD FROM HEADER-1 AFTER 2.
+           WRITE REPORT-RECORD FROM HEADER-2 AFTER 1.
+           WRITE REPORT-RECORD FROM HEADER-3 AFTER 2.
+
+           WRITE REPORT-RECORD FROM HS-TOT-HEADER-1 AFTER 2.
+           WRITE REPORT-RECORD FROM HS-TOT-HEADER-2 AFTER 1.
+           WRITE REPORT-RECORD FROM OUT-HS-TOTAL-FEILDS.
+
+       0700-EXIT. EXIT.
+/*
+//SYSLIN   DD DSN=&&OBJMOD,
+//            SPACE=(CYL,(1,1)),
+//            DISP=(MOD,PASS,DELETE)
+//*
+//SYSPRINT DD SYSOUT=*
+//*
+//SYSUT1   DD SPACE=(CYL,(1,1))
+//SYSUT2   DD SPACE=(CYL,(1,1))
+//SYSUT3   DD SPACE=(CYL,(1,1))
+//SYSUT4   DD SPACE=(CYL,(1,1))
+//SYSUT5   DD SPACE=(CYL,(1,1))
+//SYSUT6   DD SPACE=(CYL,(1,1))
+//SYSUT7   DD SPACE=(CYL,(1,1))
+//SYSUT8   DD SPACE=(CYL,(1,1))
+//SYSUT9   DD SPACE=(CYL,(1,1))
+//SYSUT10  DD SPACE=(CYL,(1,1))
+//SYSUT11  DD SPACE=(CYL,(1,1))
+//SYSUT12  DD SPACE=(CYL,(1,1))
+//SYSUT13  DD SPACE=(CYL,(1,1))
+//SYSUT14  DD SPACE=(CYL,(1,1))
+//SYSUT15  DD SPACE=(CYL,(1,1))
+//*
+//SYSMDECK DD SPACE=(CYL,(1,1))
+//*
+//*****************************************************************
+//*                            JSTEP02                            *
+//*                                                               *
+//*  JSTEP02: THIS IS THE BINDER STEP WHICH EXECUTES              *
+//*           THE PROGRAM: IEWBLINK, (A.K.A., THE BINDER) IF      *
+//*           JSTEP01 RETURNED 0 WHICH MEANS IT RAN SUCCESSFULLY  *
+//*                                                               *
+//*   SYSLIB: DD INDICATING REQUIRED LIBRARY ROUTINES FOR BINDER  *
+//*                                                               *
+//*   SYSLIN: DD CARD DESCRIBING THE TEMPERARY DATA SET HOLDING   *
+//*           THE OBJECT MODULE BEING TAKEN AS INPUT BY THE       *
+//*           BINDER.                                             *
+//*                                                               *
+//*  SYSLMOD: DD CARD DESCRIBING THE LOCATION TO STORE THE        *
+//*           EXICUTABLE LOAD MODULE PRODUCED BY THE BINDER.      *
+//*                                                               *
+//* SYSPRINT: DD CARD INDICATIONG WHERE MESSAGES FROM THE BINDER  *
+//*           ARE TO BE WRITTEN. IN THIS CASE: STANDARD OUTPUT.   *
+//*                                                               *
+//*****************************************************************
+//*
+//STEP02   EXEC PGM=IEWBLINK,COND=(0,LT)
+//*
+//SYSLIB   DD DSN=CEE.SCEELKEX,DISP=SHR
+//         DD DSN=CEE.SCEELKED,DISP=SHR
+//*
+//SYSLIN   DD DSN=&&OBJMOD,DISP=(MOD,DELETE,DELETE)
+//         DD *
+      ENTRY SALESRPT
+      MODE AMODE(24)
+//*
+//SYSLMOD  DD DSN=KC03C58.CSCI465.LOADLIB(SALESRPT),
+//            SPACE=(1024,(50,20,1)),DSNTYPE=LIBRARY,
+//            DISP=(MOD,KEEP,KEEP)
+//*
+//SYSPRINT DD SYSOUT=*
+//*
+//*****************************************************************
+//*                            JSTEP03                            *
+//*                                                               *
+//*  JSTEP03: THIS IS THE FETCH AND EXECUTE STEP. IT WILL         *
+//*           FETCH THE LOAD MODULE FROM THE LOADLIB PDSE         *
+//*           AND EXICUTE IT.                                     *
+//*                                                               *
+//*  STEPLIB: THIS DD CARD TELLS THE SYSTEM WHERE TO LOOK         *
+//*           FOR THE LOAD LIBRARY.                               *
+//*                                                               *
+//* SALEFILE: THIS DD CARD DESCRIBES THE LOCATION OF THE          *
+//*           DATA SET CONTAINING THE INPUT FOR THE PROGRAM       *
+//*                                                               *
+//*   HISALE: DD CARD FOR TEMPERARY DATA-SET THAT WILL HOLD THE   *
+//*           HIGH-SALES DATA WHICH WILL BE WRITTEN TEMPORARILY   *
+//*           AND READ IN AS INPUT AND PROCESSED BY THE 0400      *
+//*           SUBROUTINE.                                         *
+//*                                                               *
+//*  RPTDATA: THIS DD CARD INDICATES WHERE MESSAGES FROM          *
+//*           THE PROGRAM ARE TO BE WRITTEN IN THIS CASE,         *
+//*           STANDARD OUTPUT.                                    *
+//*                                                               *
+//*****************************************************************
+//*
+//STEP03   EXEC PGM=SALESRPT,COND=(0,LT)
+//*
+//STEPLIB  DD DSN=KC03C58.CSCI465.LOADLIB,DISP=(SHR,KEEP,KEEP)
+//         DD DSN=KC02322.CSCI465.LOADLIB,DISP=SHR
+//*
+//SALEFILE DD DSN=KC02322.CSCI465.DATAFA23(DATA5),
+//            DISP=SHR
+//*
+//HISALE   DD DSN=&&TEMP1,
+//            SPACE=(TRK,(1,1)),
+//            DISP=(MOD,DELETE,DELETE)
+//*
+//RPTFILE  DD SYSOUT=*
+//
